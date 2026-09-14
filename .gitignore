@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+data/bronze/*
+data/silver/*
+data/gold/*
+
+src/bronze/*
+src/silver/*
+src/gold/*
