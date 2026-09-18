@@ -1,0 +1,126 @@
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: weather_db
+      POSTGRES_USER: weather_user
+      POSTGRES_PASSWORD: weather_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "weather_user", "-d", "weather_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW_UID=${AIRFLOW_UID:-50000}
+      - DB_USER=weather_user
+      - DB_PWD=weather_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=weather_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create
+      --username admin
+      --firstname Admin
+      --lastname User
+      --role Admin
+      --email admin@example.com
+      --password admin
+      "
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW_UID=${AIRFLOW_UID:-50000}
+      - DB_USER=weather_user
+      - DB_PWD=weather_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=weather_db
+    command: webserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src
+      - ./sql:/opt/airflow/sql
+      - ./config:/opt/airflow/config
+      - ./fallbackData:/opt/airflow/fallbackData
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    user: "${AIRFLOW_UID:-50000}:0"
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://weather_user:weather_password@postgres/weather_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW_UID=${AIRFLOW_UID:-50000}
+      - DB_USER=weather_user
+      - DB_PWD=weather_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=weather_db
+    command: scheduler
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src
+      - ./sql:/opt/airflow/sql
+      - ./config:/opt/airflow/config
+      - ./fallbackData:/opt/airflow/fallbackData
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/streamlit/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://weather_user:weather_password@postgres:5432/weather_db
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./streamlit:/app/streamlit
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

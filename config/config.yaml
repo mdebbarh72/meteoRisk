@@ -1,0 +1,24 @@
+weather:
+  forecast_days: 7
+  timezone: Africa/Casablanca
+
+risk:
+  temperature_weight: 0.20
+  precipitation_weight: 0.35
+  rain_probability_weight: 0.15
+  wind_weight: 0.20
+  weather_code_weight: 0.10
+
+thresholds:
+  temperature:
+    cold: 10
+    normal: 30
+    hot: 35
+  precipitation:
+    light: 2.5
+    moderate: 10
+    heavy: 25
+  wind:
+    moderate: 20
+    strong: 40
+    dangerous: 60
